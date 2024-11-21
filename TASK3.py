@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd #import library first(pip install)
 from openpyxl import load_workbook
 import os
 #nkhiyhxguextgvjv
