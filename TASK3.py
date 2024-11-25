@@ -82,3 +82,6 @@ sheets_dict = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 
 
 df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name='Sheet1')   #source ecxel to convert to text
 df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)           #target output file
+print("Succesfully output excel data to Final_Extraction.txt")
+df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.csv', sep='\t', index=False)           #target output file in csv form
+print("Succesfully output excel data to Final_Extraction.csv")
