@@ -75,4 +75,10 @@ target_row_start = 3                 # Starting row in the target sheet, 1-based
 target_column = 4                    # Starting column to insert into in the target sheet, 1-based index
 
 extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_row_start, target_column)
-#neth
+
+#portion to write from excel file to text.
+
+sheets_dict = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name=None)
+
+df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name='Sheet1')   #source ecxel to convert to text
+df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)           #target output file
