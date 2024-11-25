@@ -1,7 +1,7 @@
 import pandas as pd #import library first(pip install)
 from openpyxl import load_workbook
 import os
-#nkhiyhxguextgvjv
+
 print("try")
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_row_start, target_column):
     try:
@@ -9,32 +9,33 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
         df_source = pd.read_excel(source_file, sheet_name=source_sheet_name, index_col=None)
         
         # Get name of the report from the source file without the extension
-        report_name = os.path.basename(source_file).split('.')[0]  # Get the file name without extension
+        report_name = os.path.basename(source_file).split('.')[0]  
         
         # Get the absolute path of the source file
-        source_file_path = os.path.abspath(source_file)  # Full path to the source file
+        source_file_path = os.path.abspath(source_file)
         
         # Load the source workbook and reference the first sheet
         source_wb = load_workbook(source_file)
-        source_ws = source_wb[source_wb.sheetnames[0]]  # Access the first sheet
+        source_ws = source_wb[source_wb.sheetnames[0]]  # Access the first sheet, base index 0
         
         # Extract value from cell B2 of the first sheet
-        value_b2 = source_ws['B2'].value  # Get the value from cell B2 specifically
+        value_b2 = source_ws['B2'].value 
         print(f"Value from B2: {value_b2}")  
         
         # Load the target workbook and worksheet
         target_wb = load_workbook(target_file)
         target_ws = target_wb[target_sheet_name]
         
-        # Insert the report name into column B starting at row 3
+        # Insert the report name into column B 
+        #all starting from row 3
         for row in range(target_row_start, target_row_start + len(df_source)):
             target_ws.cell(row=row, column=2, value=report_name)  
         
-        # Insert the source file path into column C starting at row 3
+        # Insert the source file path into column C 
         for row in range(target_row_start, target_row_start + len(df_source)):
             target_ws.cell(row=row, column=3, value=source_file_path)  
         
-         # Insert the value from B2 of the first sheet into column D starting at row 3
+         # Insert the value from B2 of the first sheet into column D 
         for row in range(target_row_start, target_row_start + len(df_source)):
             target_ws.cell(row=row, column=4, value=value_b2)  
         
@@ -69,9 +70,9 @@ source_file = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report Templ
 target_file = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
 source_sheet_name = "Rpt-Maintain"  
 target_sheet_name = "Sheet1"         
-source_row_start_index = 0           # Start at the first row (0-based index) in the source sheet
-target_row_start = 3                 # Starting row in the target sheet (1-based index)
-target_column = 4                    # Starting column to insert into in the target sheet (1-based index)
+source_row_start_index = 0           # Start at the first row in the source sheet, Base 0
+target_row_start = 3                 # Starting row in the target sheet, 1-based index
+target_column = 4                    # Starting column to insert into in the target sheet, 1-based index
 
 extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_row_start, target_column)
 #neth
