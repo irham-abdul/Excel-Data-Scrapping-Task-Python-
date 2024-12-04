@@ -4,14 +4,6 @@ import os
 from datetime import datetime, timedelta
 from openpyxl.styles import Font
 
-#another comment izz
-#another commet irham
-#intersection comments
-#willy willy
-#another intersection comment
-#comment for branching
-#comment for branching with rule
-#comment for branching with rule2
 print("try")
 
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_row_start, target_column):
