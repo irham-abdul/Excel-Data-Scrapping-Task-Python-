@@ -1,9 +1,9 @@
-import pandas as pd
-import os
-from openpyxl import Workbook, load_workbook
+import os               
 from openpyxl.styles import Font
 from datetime import datetime, timedelta
-import win32com.client as win32
+import pandas as pd                             # pip install pandas
+from openpyxl import Workbook, load_workbook    # pip install openpyxl
+import win32com.client as win32                 # pip install pywin32
 
 def convert_xlsb_to_xlsx(xlsb_file, xlsx_file):
     """ Convert a .xlsb file to a .xlsx file using win32com.client """
