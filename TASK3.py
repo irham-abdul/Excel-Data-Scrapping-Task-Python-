@@ -1,29 +1,17 @@
 import os
+import pandas as pd                             # pip install pandas
 from openpyxl.styles import Font
 from datetime import datetime, timedelta
-import pandas as pd                             # pip install pandas
 from openpyxl import Workbook, load_workbook    # pip install openpyxl
-import win32com.client as win32                 # pip install pywin32
+import xlwings as xw                            # pip install xlwings
 
-def convert_xlsb_to_xlsx(xlsb_file, xlsx_file):
-    #Convert a .xlsb file to a .xlsx file using win32com.client
-    try:
-        # Create a COM object for Excel
-        excel = win32.Dispatch("Excel.Application")
-        excel.Visible = False  # FALSE to hide Excel application window
-        
-        wb = excel.Workbooks.Open(xlsb_file) # Open the .xlsb file
-        
-        # Save the .xlsb as .xlsx
-        wb.SaveAs(xlsx_file, FileFormat=51)  # FileFormat=51 is to .xlsx
-        wb.Close() 
-        excel.Quit()  
-        return True  # Return True when conversion is successful
-    except Exception as e:
-        print(f"Error converting {xlsb_file} to {xlsx_file}: {e}")
-        if 'excel' in locals():
-            excel.Quit()  # Quit Excel if it was opened
-        return False  # Return False if error occurs
+def convert_xlsb2xlsx(filepath):
+    xlsx_path = filepath.replace('.xlsb', '.xlsx')
+    with xw.App(visible=False) as app:
+        wb = app.books.open(filepath)
+        wb.save(xlsx_path)
+        wb.close()
+    return xlsx_path
 
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
     try:
@@ -32,9 +20,7 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
 
         # If file is .xlsb, convert it to .xlsx before extracting data
         if file_extension == '.xlsb':
-            xlsx_file = source_file.replace('.xlsb', '.xlsx')
-            if not convert_xlsb_to_xlsx(source_file, xlsx_file):
-                return False  # Return False if conversion fails
+            xlsx_file = convert_xlsb2xlsx(source_file)  # Convert .xlsb to .xlsx
             source_file = xlsx_file  # Update the source file to the converted .xlsx file
 
         # Reading the .xlsx file (both new and converted)
@@ -122,7 +108,7 @@ def get_source_files(file_path):
         return []
 
 # File paths, sheet names, and row/column details for target
-source_files = get_source_files(r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt") # Read the source files from the text file
+source_files = get_source_files(r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt")  # Read the source files from the text file
 target_file = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
 source_sheet_name = "Rpt-Maintain"  
 target_sheet_name = "Sheet1"         
@@ -147,4 +133,4 @@ df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final E
 df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)  # Portion to write from excel file to text.
 print("Successfully output excel data to Final_Extraction.txt") 
 df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.csv', sep='\t', index=False)  # Portion to write from excel file to csv.
-print("Successfully output excel data to Final_Extraction.csv") 
+print("Successfully output excel data to Final_Extraction.csv")
