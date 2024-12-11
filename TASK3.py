@@ -1,4 +1,4 @@
-import os               
+import os
 from openpyxl.styles import Font
 from datetime import datetime, timedelta
 import pandas as pd                             # pip install pandas
@@ -6,39 +6,38 @@ from openpyxl import Workbook, load_workbook    # pip install openpyxl
 import win32com.client as win32                 # pip install pywin32
 
 def convert_xlsb_to_xlsx(xlsb_file, xlsx_file):
-    """ Convert a .xlsb file to a .xlsx file using win32com.client """
+    #Convert a .xlsb file to a .xlsx file using win32com.client
     try:
         # Create a COM object for Excel
         excel = win32.Dispatch("Excel.Application")
-        excel.Visible = False  # Hide Excel application window
-
-        # Open the .xlsb file
-        wb = excel.Workbooks.Open(xlsb_file)
+        excel.Visible = False  # FALSE to hide Excel application window
+        
+        wb = excel.Workbooks.Open(xlsb_file) # Open the .xlsb file
         
         # Save the .xlsb as .xlsx
-        wb.SaveAs(xlsx_file, FileFormat=51)  # FileFormat=51 corresponds to .xlsx
-        wb.Close()  # Close the workbook
-
-        print(f"Successfully converted {xlsb_file} to {xlsx_file}")
-        excel.Quit()  # Quit Excel application
-
+        wb.SaveAs(xlsx_file, FileFormat=51)  # FileFormat=51 is to .xlsx
+        wb.Close() 
+        excel.Quit()  
+        return True  # Return True when conversion is successful
     except Exception as e:
         print(f"Error converting {xlsb_file} to {xlsx_file}: {e}")
         if 'excel' in locals():
-            excel.Quit()  # Make sure to quit Excel if it was opened
+            excel.Quit()  # Quit Excel if it was opened
+        return False  # Return False if error occurs
 
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
     try:
-        # Check the file extension to decide the method for reading the file
+        # Check the file extension to decide method for reading the file
         file_extension = os.path.splitext(source_file)[1].lower()
 
-        # If the file is .xlsb, convert it to .xlsx before extracting data
+        # If file is .xlsb, convert it to .xlsx before extracting data
         if file_extension == '.xlsb':
             xlsx_file = source_file.replace('.xlsb', '.xlsx')
-            convert_xlsb_to_xlsx(source_file, xlsx_file)
+            if not convert_xlsb_to_xlsx(source_file, xlsx_file):
+                return False  # Return False if conversion fails
             source_file = xlsx_file  # Update the source file to the converted .xlsx file
 
-        # Now proceed with reading the .xlsx file (either original or converted)
+        # Reading the .xlsx file (both new and converted)
         df_source = pd.read_excel(source_file, sheet_name=source_sheet_name, index_col=None)
         source_wb = load_workbook(source_file)
 
@@ -48,8 +47,6 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
         if value_b2 is None:
             value_b2 = "No value in B2"
         
-        print(f"Value from B2: {value_b2}")
-
         # Get name of the report from the source file without the extension
         report_name = os.path.basename(source_file).split('.')[0]  
 
@@ -107,14 +104,11 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
 
         # Save updated target workbook
         target_wb.save(target_file)
-        print(f"Rows appended for {source_file}, report name added to column B, source file path added to column C, value from B2 added to column D, and data from Columns 1-7 added to Columns E-K with formula in Column F.")
+        return True  # Return True if data extraction and appending are successful
 
-    except FileNotFoundError:
-        print(f"File not found: {source_file} or {target_file}")
-    except KeyError:
-        print(f"Sheet '{source_sheet_name}' or '{target_sheet_name}' not found.")
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        print(f"An error occurred with {source_file}: {str(e)}")
+        return False  # Return False when an error occurs during extraction
 
 # Function to read file paths from the text file
 def get_source_files(file_path):
@@ -135,12 +129,22 @@ target_sheet_name = "Sheet1"
 source_row_start_index = 0           # Start at the first row in the source sheet, Base 0
 target_column = 4                    # Starting column to insert into in the target sheet, 1-based index
 
-# Process each source file in the list
-for source_file in source_files:
-    extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column)
+# Initialize a list to track successful extractions
+successful_extractions = []
 
-df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name='Sheet1')   # target file to write extracted data
-df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)           # Portion to write from excel file to text.
+# Process each source file in the list
+for idx, source_file in enumerate(source_files):
+    if extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
+        successful_extractions.append(f"Finished extracting data from report {idx + 1}")
+    else:
+        successful_extractions.append(f"Failed to extract data from report {idx + 1}")
+
+# Print summary after all reports have been processed
+print("\n".join(successful_extractions))
+
+# After processing, output the final extraction data to text and csv
+df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name='Sheet1')  # target file to write extracted data
+df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)  # Portion to write from excel file to text.
 print("Successfully output excel data to Final_Extraction.txt") 
-df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.csv', sep='\t', index=False)           # Portion to write from excel file to csv.
+df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.csv', sep='\t', index=False)  # Portion to write from excel file to csv.
 print("Successfully output excel data to Final_Extraction.csv") 
