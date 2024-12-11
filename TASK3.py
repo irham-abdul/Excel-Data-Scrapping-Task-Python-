@@ -1,42 +1,60 @@
-import pandas as pd  # Import library first (pip install)
-from openpyxl import load_workbook
-from pyxlsb import open_workbook as open_workbook_b
+import pandas as pd
 import os
-from datetime import datetime, timedelta
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
+from datetime import datetime, timedelta
+import win32com.client as win32
+
+def convert_xlsb_to_xlsx(xlsb_file, xlsx_file):
+    """ Convert a .xlsb file to a .xlsx file using win32com.client """
+    try:
+        # Create a COM object for Excel
+        excel = win32.Dispatch("Excel.Application")
+        excel.Visible = False  # Hide Excel application window
+
+        # Open the .xlsb file
+        wb = excel.Workbooks.Open(xlsb_file)
+        
+        # Save the .xlsb as .xlsx
+        wb.SaveAs(xlsx_file, FileFormat=51)  # FileFormat=51 corresponds to .xlsx
+        wb.Close()  # Close the workbook
+
+        print(f"Successfully converted {xlsb_file} to {xlsx_file}")
+        excel.Quit()  # Quit Excel application
+
+    except Exception as e:
+        print(f"Error converting {xlsb_file} to {xlsx_file}: {e}")
+        if 'excel' in locals():
+            excel.Quit()  # Make sure to quit Excel if it was opened
 
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
     try:
         # Check the file extension to decide the method for reading the file
         file_extension = os.path.splitext(source_file)[1].lower()
+
+        # If the file is .xlsb, convert it to .xlsx before extracting data
+        if file_extension == '.xlsb':
+            xlsx_file = source_file.replace('.xlsb', '.xlsx')
+            convert_xlsb_to_xlsx(source_file, xlsx_file)
+            source_file = xlsx_file  # Update the source file to the converted .xlsx file
+
+        # Now proceed with reading the .xlsx file (either original or converted)
+        df_source = pd.read_excel(source_file, sheet_name=source_sheet_name, index_col=None)
+        source_wb = load_workbook(source_file)
+
+        # Get the value from cell B2 in the first sheet of .xlsx
+        value_b2 = source_wb.worksheets[0]['B2'].value  # Accessing the first sheet (index 0)
+
+        if value_b2 is None:
+            value_b2 = "No value in B2"
         
-        # Load source Excel file based on its extension
-        if file_extension == '.xlsx':
-            df_source = pd.read_excel(source_file, sheet_name=source_sheet_name, index_col=None)
-            source_wb = load_workbook(source_file)
-        elif file_extension == '.xlsb':
-            with open_workbook_b(source_file) as wb:
-                sheet = wb.get_sheet(source_sheet_name)
-                # Convert the sheet to a DataFrame
-                df_source = pd.DataFrame(sheet.rows())
-            source_wb = None  # Since we don't need openpyxl for .xlsb files
-        else:
-            raise ValueError("Unsupported file type. Only .xlsx and .xlsb are supported.")
-        
+        print(f"Value from B2: {value_b2}")
+
         # Get name of the report from the source file without the extension
         report_name = os.path.basename(source_file).split('.')[0]  
-        
+
         # Get the absolute path of the source file
         source_file_path = os.path.abspath(source_file)
-        
-        # If source_wb is available (for .xlsx files), use openpyxl to get the value from B2
-        if source_wb:
-            source_ws = source_wb[source_wb.sheetnames[0]]  # Access the first sheet, base index 0
-            value_b2 = source_ws['B2'].value
-        else:
-            value_b2 = None  # For .xlsb, B2 value extraction can be omitted or handled differently
-
-        print(f"Value from B2: {value_b2}")  
         
         # Load the target workbook and worksheet
         target_wb = load_workbook(target_file)
@@ -52,7 +70,6 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
         target_ws.cell(row=1, column=12).font = bold_font
 
         # Insert the report name into column B 
-        # All starting from the identified row (target_row_start)
         for row in range(target_row_start, target_row_start + len(df_source)):
             target_ws.cell(row=row, column=2, value=report_name)  
         
@@ -64,18 +81,20 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
         for row in range(target_row_start, target_row_start + len(df_source)):
             target_ws.cell(row=row, column=4, value=value_b2)  
 
-        # Calculate yesterday's date
-        yesterday_date = (datetime.now() - timedelta(1)).strftime('%Y-%m-%d')
-        
-        # Set the header for the 'zsystem' column (column 11)
-        target_ws.cell(row=target_row_start - 2, column=12, value='zsystem')
+        # Calculate yesterday's date in the required format (dd/mm/yyyy)
+        yesterday_date = (datetime.now() - timedelta(1)).strftime('%d/%m/%Y')
 
-        # Loop through each row in the source (Sheet2), starting from the specified start index
+        # Insert "zsystem" header and yesterday's date in the first row only (column L)
+        if target_row_start == last_row + 1:  # Only for the first row written
+            target_ws.cell(row=1, column=12, value="zsystem").font = bold_font  # Add header in L1 (bold font)
+            target_ws.cell(row=2, column=12, value=yesterday_date)  # Add date in L2
+        
+        # Loop through each row in the source, starting from the specified start index
         for row_offset in range(len(df_source)):
             row_data = df_source.iloc[row_offset, 1:8] 
             
             target_row = target_row_start + row_offset
-            
+            # Loop through columns to populate data
             for col_offset, value in enumerate(row_data):
                 target_ws.cell(row=target_row, column=5 + col_offset, value=value)  
 
@@ -86,21 +105,16 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
                 value=f'=CONCATENATE("{target_ws.cell(row=target_row, column=5).value} as at ","-",TEXT(L2,"dd-mmm-yyyy"))'
             )
 
-            # Insert yesterday's date into the 'zsystem' column (column 11) for the first data row (row_offset == 0)
-            if row_offset == 0:  # Only insert in the first row of data
-                target_ws.cell(row=target_row - 1, column=12, value=yesterday_date)  # Column 11 for 'zsystem'
-                
         # Save updated target workbook
         target_wb.save(target_file)
-        print(f"Rows appended for {source_file}, report name added to column B, source file path added to column C, value from B2 added to column D, and data from Columns 1-7 added to Columns E-K with formula in Column F, and 'zsystem' added to Column 11.")
-    
+        print(f"Rows appended for {source_file}, report name added to column B, source file path added to column C, value from B2 added to column D, and data from Columns 1-7 added to Columns E-K with formula in Column F.")
+
     except FileNotFoundError:
         print(f"File not found: {source_file} or {target_file}")
     except KeyError:
         print(f"Sheet '{source_sheet_name}' or '{target_sheet_name}' not found.")
     except Exception as e:
         print(f"An error occurred: {str(e)}")
-
 
 # Function to read file paths from the text file
 def get_source_files(file_path):
@@ -112,7 +126,6 @@ def get_source_files(file_path):
     except FileNotFoundError:
         print(f"Text file not found: {file_path}")
         return []
-
 
 # File paths, sheet names, and row/column details for target
 source_files = get_source_files(r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt") # Read the source files from the text file
