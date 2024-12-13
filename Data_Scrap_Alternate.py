@@ -17,7 +17,7 @@ def convert_xlsb_to_xlsx(xlsb_file_path):
     with xw.App(visible=False) as app:
         # Open the .xlsb file
         wb = app.books.open(xlsb_file_path)
-        app.enable_events=False
+        app.enable_events = False
         # Save it as .xlsx
         wb.save(xlsx_file_path)
         
@@ -91,6 +91,9 @@ def process_excel_file(file_path, destination_ws):
     rows_count_sheet_1 = sheet_1.max_row
     rows_count_sheet_2 = sheet_2.max_row
 
+    # Calculate the previous day's date
+    previous_date = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
+
     # Iterate through the rows of the source file and append data to the destination file
     for i in range(2, max(rows_count_sheet_1, rows_count_sheet_2) + 1):
         # Column A: Sequential numbers are removed now
@@ -122,14 +125,14 @@ def process_excel_file(file_path, destination_ws):
                 # Extract the string part before the "-" in Column C
                 string_part = source_content.split("-")[0].strip()
                 # Add the formula (this will be inserted as a formula directly in the destination file)
-                row_data.append(f'=CONCATENATE("{string_part}", " at ", "-", TEXT(L2, "dd-mmm-yyyy"))')
+                row_data.append(f'=CONCATENATE("{string_part}", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))')
             else:
-                row_data.append(f'=CONCATENATE("Invalid Content in C", " at ", "-", TEXT(L2, "dd-mmm-yyyy"))')
+                row_data.append(f'=CONCATENATE("Invalid Content in C", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))')
         else:
             row_data.append(None)
 
-        # Column G to K: Extract data from Columns D to H of Sheet 2 (now including H)
-        for col_letter in ['D', 'E', 'F', 'G', 'H']:  # Include 'H' in the list
+        # Columns G to J: Extract data from Columns D to H of Sheet 2 (now including H)
+        for col_letter in ['D', 'E', 'F', 'G', 'H']:
             if i <= rows_count_sheet_2:
                 row_data.append(sheet_2[f"{col_letter}{i}"].value)
             else:
@@ -137,6 +140,9 @@ def process_excel_file(file_path, destination_ws):
 
         # Append the row data to the destination file
         destination_ws.append(row_data)
+
+    # Add the previous day's date to cell K2
+    destination_ws['K2'] = previous_date
 
 # Read file paths from the text file
 with open(txt_file_path, "r") as file:
