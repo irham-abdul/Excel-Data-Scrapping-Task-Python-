@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook    # pip install openpyxl
 import xlwings as xw                            # pip install xlwings
 
+
 def convert_xlsb2xlsx(filepath):
     xlsx_path = filepath.replace('.xlsb', '.xlsx')
     with xw.App(visible=False) as app:
@@ -14,7 +15,6 @@ def convert_xlsb2xlsx(filepath):
     return xlsx_path
 
 def extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
-    try:
         # Check the file extension to decide method for reading the file
         file_extension = os.path.splitext(source_file)[1].lower()
 
@@ -42,45 +42,46 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
         # Load the target workbook and worksheet
         target_wb = load_workbook(target_file)
         target_ws = target_wb[target_sheet_name]
-        
-        # Identify the last used row in the target sheet
-        last_row = target_ws.max_row  # max_row returns the last used row in the sheet
-        
-        # Make the row where new data should start (after the last row with data)
-        target_row_start = last_row + 1
-        
-        bold_font = Font(bold=True)
-        target_ws.cell(row=1, column=12).font = bold_font
 
-        # Insert the report name into column B 
-        for row in range(target_row_start, target_row_start + len(df_source)):
+        # Identify the last used row in the target sheet, start appending from row 2 onward
+        last_row = target_ws.max_row  # Get the last used row in the sheet (including the header)
+
+        # If the last row is 1 (only the header), then start from row 2
+        if last_row == 1:
+            last_row = 1
+        else:
+            last_row = target_ws.max_row + 1  # Set last_row to the next row after the header
+
+        # Insert the report name into column B (starting from row 2)
+        for row in range(last_row, last_row + len(df_source)):  # Adjusted to start at last_row
             target_ws.cell(row=row, column=2, value=report_name)  
-        
-        # Insert the source file path into column C 
-        for row in range(target_row_start, target_row_start + len(df_source)):
+
+        # Insert the source file path into column C
+        for row in range(last_row, last_row + len(df_source)):
             target_ws.cell(row=row, column=3, value=source_file_path)  
-        
-        # Insert the value from B2 of the first sheet into column D 
-        for row in range(target_row_start, target_row_start + len(df_source)):
+
+        # Insert the value from B2 of the first sheet into column D
+        for row in range(last_row, last_row + len(df_source)):
             target_ws.cell(row=row, column=4, value=value_b2)  
 
         # Calculate yesterday's date in the required format (dd/mm/yyyy)
         yesterday_date = (datetime.now() - timedelta(1)).strftime('%d/%m/%Y')
 
         # Insert "zsystem" header and yesterday's date in the first row only (column L)
-        if target_row_start == last_row + 1:  # Only for the first row written
+        if last_row == 1:  # Only if this is the first time appending (header is empty)
+            bold_font = Font(bold=True)
             target_ws.cell(row=1, column=12, value="zsystem").font = bold_font  # Add header in L1 (bold font)
             target_ws.cell(row=2, column=12, value=yesterday_date)  # Add date in L2
         
         # Loop through each row in the source, starting from the specified start index
         for row_offset in range(len(df_source)):
-            row_data = df_source.iloc[row_offset, 1:8] 
+            row_data = df_source.iloc[row_offset, 3:8]  # Extract relevant data from columns 4 to 8
             
-            target_row = target_row_start + row_offset
+            target_row = last_row + row_offset  # Ensure data is appended after the last row
             # Loop through columns to populate data
             for col_offset, value in enumerate(row_data):
-                target_ws.cell(row=target_row, column=5 + col_offset, value=value)  
-
+                target_ws.cell(row=target_row, column=7 + col_offset, value=value)
+                
             # Insert CONCATENATE formula into Column F for current row, dynamically using value from column 5 (E)
             target_ws.cell(
                 row=target_row, 
@@ -88,13 +89,9 @@ def extract_and_append_rows(source_file, target_file, source_sheet_name, target_
                 value=f'=CONCATENATE("{target_ws.cell(row=target_row, column=5).value} as at ","-",TEXT(L2,"dd-mmm-yyyy"))'
             )
 
-        # Save updated target workbook
+        # Save updated target workbook (overwriting any previous data if necessary)
         target_wb.save(target_file)
-        return True  # Return True if data extraction and appending are successful
-
-    except Exception as e:
-        print(f"An error occurred with {source_file}: {str(e)}")
-        return False  # Return False when an error occurs during extraction
+        return True  # Return True if data extraction and appending are successful 
 
 # Function to read file paths from the text file
 def get_source_files(file_path):
@@ -118,6 +115,19 @@ target_column = 4                    # Starting column to insert into in the tar
 # Initialize a list to track successful extractions
 successful_extractions = []
 
+# Check if target file exists. If it exists, we will clear data from row 2 onward before appending new data
+if os.path.exists(target_file):
+    # Load the target workbook to clear its content
+    target_wb = load_workbook(target_file)
+    target_ws = target_wb[target_sheet_name]
+
+    # Clear the content of the target sheet starting from row 2 onward (keeping header intact)
+    for row in target_ws.iter_rows(min_row=2, max_row=target_ws.max_row, min_col=1, max_col=target_ws.max_column):
+        for cell in row:
+            cell.value = None
+
+    target_wb.save(target_file)
+
 # Process each source file in the list
 for idx, source_file in enumerate(source_files):
     if extract_and_append_rows(source_file, target_file, source_sheet_name, target_sheet_name, source_row_start_index, target_column):
@@ -129,7 +139,7 @@ for idx, source_file in enumerate(source_files):
 print("\n".join(successful_extractions))
 
 # After processing, output the final extraction data to text and csv
-df = pd.read_excel(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx', sheet_name='Sheet1')  # target file to write extracted data
+df = pd.read_excel(target_file, sheet_name=target_sheet_name)  # target file to write extracted data
 df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.txt', sep='\t', index=False)  # Portion to write from excel file to text.
 print("Successfully output excel data to Final_Extraction.txt") 
 df.to_csv(r'C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.csv', sep='\t', index=False)  # Portion to write from excel file to csv.
