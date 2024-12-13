@@ -1,66 +1,85 @@
-import openpyxl
 import os
-from datetime import datetime, timedelta
+import openpyxl
 import xlwings as xw
-from pyxlsb import open_workbook
+from datetime import datetime, timedelta
 
-# Path to the text file containing list of Excel files
+# Path to the text file containing the list of Excel files and folders
 txt_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt"
 # Path to the destination file
-destination_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
+destination_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.xlsx"
 
+# Function to convert .xlsb to .xlsx
 def convert_xlsb_to_xlsx(xlsb_file_path):
     # Generate the new file name for the xlsx file
     xlsx_file_path = xlsb_file_path.replace('.xlsb', '.xlsx')
     
-    # Open the .xlsb file using xlwings in the background (without GUI) and disable macros
+    # Open the .xlsb file using xlwings in the background (without GUI)
     with xw.App(visible=False) as app:
-        app.enable_events = False
-        # Open the file without macros
+        # Open the .xlsb file
         wb = app.books.open(xlsb_file_path)
-        # Save the file as .xlsx
+        app.enable_events=False
+        # Save it as .xlsx
         wb.save(xlsx_file_path)
         
-        # Close the workbook after saving
+        # Close the workbook
         wb.close()
 
     return xlsx_file_path
 
-# Read file paths from the text file
-with open(txt_file_path, "r") as file:
-    file_paths = file.readlines()
+# Function to process files
+def process_files(file_paths):
+    # Check if the destination file exists
+    if not os.path.exists(destination_file_path):
+        # If it doesn't exist, create a new workbook and save it first
+        print(f"Creating new destination file at {destination_file_path}")
+        destination_wb = openpyxl.Workbook()  # Create a new workbook
+        destination_ws = destination_wb.active
+    else:
+        # If the file exists, open it
+        print(f"Opening existing destination file at {destination_file_path}")
+        destination_wb = openpyxl.load_workbook(destination_file_path)
+        destination_ws = destination_wb.active
 
-# Open the destination Excel file
-destination_wb = openpyxl.load_workbook(destination_file_path)
-destination_ws = destination_wb.active
+    # Clear all data (including the old header) in the sheet
+    destination_ws.delete_rows(1, destination_ws.max_row)
 
-# Clear all data (including the old header) in the sheet
-destination_ws.delete_rows(1, destination_ws.max_row)
-
-# Create the new header in row 1 (removed the "No" column)
-header = ["Report Template", "Template Path", "Report Path", "Report Name", "Origin Value", 
-          "Filter", "Text", "Report Format", "Frequency", "Term", "zsystem"]
-
-# Add the header to row 1 and make it bold
-destination_ws.append(header)
-for cell in destination_ws[1]:
-    cell.font = openpyxl.styles.Font(bold=True)
-
-# Process each file listed in the text file
-for file_path in file_paths:
-    file_path = file_path.strip()  # Remove any extra whitespace or newline characters
-    if not os.path.exists(file_path):  # Skip files that don't exist
-        print(f"File {file_path} does not exist. Skipping...")
-        continue
-
-    # Check if the file is .xlsb, if so, convert it to .xlsx
-    if file_path.endswith(".xlsb"):
-        print(f"Converting {file_path} to .xlsx")
-        file_path = convert_xlsb_to_xlsx(file_path)
+    # Create the new header in row 1 (removed the "No" column)
+    header = ["Report Template", "Template Path", "Report Path", "Report Name", "Origin Value", 
+              "Filter", "Text", "Report Format", "Frequency", "Term", "zsystem"]
     
+    # Add the header to row 1 and make it bold
+    destination_ws.append(header)
+    for cell in destination_ws[1]:
+        cell.font = openpyxl.styles.Font(bold=True)
+
+    # Process each file listed in the text file
+    for file_path in file_paths:
+        file_path = file_path.strip()  # Remove any extra whitespace or newline characters
+        if os.path.isdir(file_path):  # If it's a folder, process all Excel files inside it
+            for root, dirs, files in os.walk(file_path):
+                for file in files:
+                    if file.endswith('.xlsx') or file.endswith('.xlsb'):
+                        full_file_path = os.path.join(root, file)
+                        print(f"Processing file: {full_file_path}")
+                        process_excel_file(full_file_path, destination_ws)
+        elif os.path.exists(file_path):  # If it's an individual file, process it directly
+            print(f"Processing file: {file_path}")
+            process_excel_file(file_path, destination_ws)
+        else:
+            print(f"File or folder does not exist: {file_path}")
+
+    # Save the changes to the destination file
+    destination_wb.save(destination_file_path)
+    print("Data extraction complete.")
+
+# Function to process an individual Excel file
+def process_excel_file(file_path, destination_ws):
+    if file_path.endswith('.xlsb'):
+        file_path = convert_xlsb_to_xlsx(file_path)
+
     # Open the source Excel file with data_only=True to get evaluated formulas
     content_wb = openpyxl.load_workbook(file_path, data_only=True)
-
+    
     # Get Sheet 1 (index 0) and Sheet 2 (index 1)
     sheet_1 = content_wb.worksheets[0]
     sheet_2 = content_wb.worksheets[1]
@@ -119,23 +138,9 @@ for file_path in file_paths:
         # Append the row data to the destination file
         destination_ws.append(row_data)
 
-# Add a bold header in column L (L1)
-destination_ws['K1'] = 'zsystem'
-destination_ws['K1'].font = openpyxl.styles.Font(bold=True)
+# Read file paths from the text file
+with open(txt_file_path, "r") as file:
+    file_paths = file.readlines()
 
-# Get yesterday's date
-yesterday = datetime.now() - timedelta(days=1)
-# Format the date in "dd-mmm-yyyy" format (e.g., 11-Dec-2024)
-formatted_yesterday = yesterday.strftime("%d-%b-%Y")
-
-# Set the value of L2 as yesterday's date
-destination_ws['K2'] = formatted_yesterday
-
-# Leave the rest of the rows in column L blank (starting from L3)
-for row in range(3, destination_ws.max_row + 1):
-    destination_ws[f"L{row}"] = None
-
-# Save the changes to the destination file
-destination_wb.save(destination_file_path)
-
-print("Data extraction complete. Data has been overwritten and appended from multiple files.")
+# Process the files (both individual files and files inside folders)
+process_files(file_paths)
