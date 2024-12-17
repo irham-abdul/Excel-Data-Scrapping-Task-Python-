@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import re
 
 # Paths for the files
 reference_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.xlsx"
@@ -13,7 +12,7 @@ if not os.path.exists(directory_path):
 # Step 1: Read the reference file (Column E) starting from E2 (skip header)
 df_reference = pd.read_excel(reference_file_path, usecols=[4])  # Only read column E (index 4)
 expected_files = (
-    df_reference.iloc[1:, 0]  # Start from row 2 (E2)
+    df_reference.iloc[0:, 0]  # Start from row 2 (E2)
     .dropna()  # Remove NaN values
     .astype(str)  # Ensure all values are strings
     .str.strip()  # Remove leading/trailing spaces
