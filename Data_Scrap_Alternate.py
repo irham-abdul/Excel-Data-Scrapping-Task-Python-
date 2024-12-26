@@ -10,15 +10,24 @@ destination_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 
 
 # Function to convert .xlsb to .xlsx
 def convert_xlsb_to_xlsx(xlsb_file_path):
-    # Generate the new file name for the xlsx file
-    xlsx_file_path = xlsb_file_path.replace('.xlsb', '.xlsx')
+    # Specify the directory where the converted files should be saved
+    converted_dir = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Converted"
+    
+    # Ensure the directory exists
+    if not os.path.exists(converted_dir):
+        os.makedirs(converted_dir)
+    
+    # Generate the new file path for the converted xlsx file
+    base_name = os.path.basename(xlsb_file_path)  # Extract file name from the full path
+    xlsx_file_name = base_name.replace('.xlsb', '.xlsx')  # Replace extension
+    xlsx_file_path = os.path.join(converted_dir, xlsx_file_name)  # Construct full path
     
     # Open the .xlsb file using xlwings in the background (without GUI)
     with xw.App(visible=False) as app:
         # Open the .xlsb file
         wb = app.books.open(xlsb_file_path)
         app.enable_events = False
-        # Save it as .xlsx
+        # Save it as .xlsx in the converted directory
         wb.save(xlsx_file_path)
         
         # Close the workbook
@@ -26,7 +35,6 @@ def convert_xlsb_to_xlsx(xlsb_file_path):
 
     return xlsx_file_path
 
-# Function to process files
 def process_files(file_paths):
     # Check if the destination file exists
     if not os.path.exists(destination_file_path):
