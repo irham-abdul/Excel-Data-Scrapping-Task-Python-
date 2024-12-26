@@ -4,9 +4,9 @@ import xlwings as xw
 from datetime import datetime, timedelta
 
 # Path to the text file containing the list of Excel files and folders
-txt_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt"
+txt_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt"
 # Path to the destination file
-destination_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.xlsx"
+destination_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
 
 # Function to convert .xlsb to .xlsx
 def convert_xlsb_to_xlsx(xlsb_file_path):

@@ -2,8 +2,8 @@ import os
 import pandas as pd
 
 # Paths for the files
-reference_file_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Final_Extraction.xlsx"
-directory_path = r"C:\Users\mirham\Downloads\INTERN FILE\TASK 3\PART 2\Report Files"
+reference_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
+directory_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Report Files"
 
 # Validate directory
 if not os.path.exists(directory_path):
