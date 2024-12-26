@@ -2,11 +2,24 @@ import os
 import openpyxl
 import xlwings as xw
 from datetime import datetime, timedelta
+import psutil  # Module for managing system processes
 
 # Path to the text file containing the list of Excel files and folders
 txt_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt"
 # Path to the destination file
 destination_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
+
+# Function to terminate any open Excel processes
+def close_open_excel_files():
+    print("Closing any open Excel files...")
+    for process in psutil.process_iter(attrs=['name']):
+        if process.info['name'] and process.info['name'].lower() == 'excel.exe':
+            try:
+                process.terminate()  # Terminate the process
+                process.wait(timeout=5)  # Wait for it to close
+                print(f"Terminated: {process.info['name']}")
+            except Exception as e:
+                print(f"Failed to terminate {process.info['name']}: {e}")
 
 # Function to convert .xlsb to .xlsx
 def convert_xlsb_to_xlsx(xlsb_file_path):
@@ -117,30 +130,8 @@ def process_excel_file(file_path, destination_ws):
         # Column D: Fill with the value from B2 of Sheet 1 (same value for every row in Column D)
         row_data.append(value_from_b2)
 
-        # Column E: Extract the final value from Column C of Sheet 2 (without the formula)
-        if i <= rows_count_sheet_2:
-            # Get the evaluated value from Column C in Sheet 2 (this will give us the result, not the formula)
-            evaluated_content_e = sheet_2[f"C{i}"].value
-            row_data.append(evaluated_content_e)
-        else:
-            row_data.append(None)
-
-        # Column F: Insert the formula to concatenate the string from Column C and the date from Column P
-        if i <= rows_count_sheet_2:
-            # Extract the part before the "-" in Column C of Sheet 2
-            source_content = sheet_2[f"C{i}"].value
-            if source_content and "-" in source_content:
-                # Extract the string part before the "-" in Column C
-                string_part = source_content.split("-")[0].strip()
-                # Add the formula (this will be inserted as a formula directly in the destination file)
-                row_data.append(f'=CONCATENATE("{string_part}", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))')
-            else:
-                row_data.append(f'=CONCATENATE("Invalid Content in C", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))')
-        else:
-            row_data.append(None)
-
-        # Columns G to J: Extract data from Columns D to H of Sheet 2 (now including H)
-        for col_letter in ['D', 'E', 'F', 'G', 'H']:
+        # Columns G to J: Extract data from Columns D to H of Sheet 2
+        for col_letter in ['C', 'D', 'E', 'F', 'G', 'H']:
             if i <= rows_count_sheet_2:
                 row_data.append(sheet_2[f"{col_letter}{i}"].value)
             else:
@@ -151,6 +142,9 @@ def process_excel_file(file_path, destination_ws):
 
     # Add the previous day's date to cell K2
     destination_ws['K2'] = previous_date
+
+# Close any open Excel files before starting the process
+close_open_excel_files()
 
 # Read file paths from the text file
 with open(txt_file_path, "r") as file:
