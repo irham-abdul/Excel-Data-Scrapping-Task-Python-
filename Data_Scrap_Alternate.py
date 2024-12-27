@@ -2,152 +2,169 @@ import os
 import openpyxl
 import xlwings as xw
 from datetime import datetime, timedelta
-import psutil  # Module for managing system processes
+import psutil  # Module for managing system processes (closing any excel file before start of operation)
 
-# Path to the text file containing the list of Excel files and folders
-txt_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Report_Template_Paths.txt"
-# Path to the destination file
-destination_file_path = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Final Extraction.xlsx"
+# Paths
+txt_file_path = r"Report_Template_Paths.txt"
+destination_file_path = r"Final Extraction.xlsx"
+converted_dir = r"Converted"
+
+# Ensure the Converted folder exists
+os.makedirs(converted_dir, exist_ok=True)
 
 # Function to terminate any open Excel processes
 def close_open_excel_files():
+    """
+    Closes any open Excel files before starting the process.
+    """
     print("Closing any open Excel files...")
     for process in psutil.process_iter(attrs=['name']):
         if process.info['name'] and process.info['name'].lower() == 'excel.exe':
             try:
-                process.terminate()  # Terminate the process
-                process.wait(timeout=5)  # Wait for it to close
+                process.terminate()
+                process.wait(timeout=5)
                 print(f"Terminated: {process.info['name']}")
             except Exception as e:
                 print(f"Failed to terminate {process.info['name']}: {e}")
 
 # Function to convert .xlsb to .xlsx
 def convert_xlsb_to_xlsx(xlsb_file_path):
-    # Specify the directory where the converted files should be saved
-    converted_dir = r"C:\Users\mirham\OneDrive\WORK\INTERN FILE\TASK 3\PART 2\Converted"
-    
-    # Ensure the directory exists
-    if not os.path.exists(converted_dir):
-        os.makedirs(converted_dir)
-    
-    # Generate the new file path for the converted xlsx file
-    base_name = os.path.basename(xlsb_file_path)  # Extract file name from the full path
-    xlsx_file_name = base_name.replace('.xlsb', '.xlsx')  # Replace extension
-    xlsx_file_path = os.path.join(converted_dir, xlsx_file_name)  # Construct full path
-    
-    # Open the .xlsb file using xlwings in the background (without GUI)
-    with xw.App(visible=False) as app:
-        # Open the .xlsb file
-        wb = app.books.open(xlsb_file_path)
-        app.enable_events = False
-        # Save it as .xlsx in the converted directory
-        wb.save(xlsx_file_path)
-        
-        # Close the workbook
-        wb.close()
+    """
+    Converts an .xlsb file to .xlsx format using xlwings and saves it in the Converted folder.
+    """
+    xlsx_file_name = os.path.basename(xlsb_file_path).replace('.xlsb', '.xlsx')
+    xlsx_file_path = os.path.join(converted_dir, xlsx_file_name)
+
+    try:
+        with xw.App(visible=False) as app:
+            wb = app.books.open(xlsb_file_path)
+            app.enable_events = False
+            wb.save(xlsx_file_path)
+            wb.close()
+        print(f"Converted: {xlsb_file_path} -> {xlsx_file_path}")
+    except Exception as e:
+        print(f"Error converting {xlsb_file_path} to .xlsx: {e}")
+        raise
+
+    if not os.path.exists(xlsx_file_path):
+        raise FileNotFoundError(f"Converted file not found: {xlsx_file_path}")
 
     return xlsx_file_path
 
+# Function to process files
 def process_files(file_paths):
-    # Check if the destination file exists
+    """
+    Processes a list of file paths and appends extracted data to the destination workbook.
+    """
     if not os.path.exists(destination_file_path):
-        # If it doesn't exist, create a new workbook and save it first
         print(f"Creating new destination file at {destination_file_path}")
-        destination_wb = openpyxl.Workbook()  # Create a new workbook
+        destination_wb = openpyxl.Workbook()
         destination_ws = destination_wb.active
     else:
-        # If the file exists, open it
         print(f"Opening existing destination file at {destination_file_path}")
         destination_wb = openpyxl.load_workbook(destination_file_path)
         destination_ws = destination_wb.active
 
-    # Clear all data (including the old header) in the sheet
     destination_ws.delete_rows(1, destination_ws.max_row)
-
-    # Create the new header in row 1 (removed the "No" column)
-    header = ["Report Template", "Template Path", "Report Path", "Report Name", "Origin Value", 
-              "Filter", "Text", "Report Format", "Frequency", "Term", "zsystem"]
-    
-    # Add the header to row 1 and make it bold
+    header = [
+        "Report Template", "Template Path", "Report Path", "Report Name", 
+        "Origin Value", "Filter", "Text", "Report Format", "Frequency", 
+        "Term", "zsystem"
+    ]
     destination_ws.append(header)
     for cell in destination_ws[1]:
         cell.font = openpyxl.styles.Font(bold=True)
 
-    # Process each file listed in the text file
     for file_path in file_paths:
-        file_path = file_path.strip()  # Remove any extra whitespace or newline characters
-        if os.path.isdir(file_path):  # If it's a folder, process all Excel files inside it
-            for root, dirs, files in os.walk(file_path):
+        file_path = file_path.strip()
+        if os.path.isdir(file_path):
+            for root, _, files in os.walk(file_path):
                 for file in files:
-                    if file.endswith('.xlsx') or file.endswith('.xlsb'):
+                    if file.startswith('~$'):  # Skip temporary files
+                        print(f"Skipping temporary file: {file}")
+                        continue
+                    if file.endswith(('.xlsx', '.xlsb')):
                         full_file_path = os.path.join(root, file)
                         print(f"Processing file: {full_file_path}")
-                        process_excel_file(full_file_path, destination_ws)
-        elif os.path.exists(file_path):  # If it's an individual file, process it directly
-            print(f"Processing file: {file_path}")
-            process_excel_file(file_path, destination_ws)
+                        try:
+                            process_excel_file(full_file_path, destination_ws)
+                        except Exception as e:
+                            print(f"Error processing file {full_file_path}: {e}")
+        elif os.path.exists(file_path):
+            if file_path.startswith('~$'):
+                print(f"Skipping temporary file: {file_path}")
+                continue
+            if file_path.endswith(('.xlsx', '.xlsb')):
+                try:
+                    print(f"Processing file: {file_path}")
+                    process_excel_file(file_path, destination_ws)
+                except Exception as e:
+                    print(f"Error processing file {file_path}: {e}")
+            else:
+                print(f"Skipping unsupported file: {file_path}")
         else:
             print(f"File or folder does not exist: {file_path}")
 
-    # Save the changes to the destination file
     destination_wb.save(destination_file_path)
     print("Data extraction complete.")
 
 # Function to process an individual Excel file
 def process_excel_file(file_path, destination_ws):
+    """
+    Processes an individual Excel file and appends its data to the destination sheet.
+    """
     if file_path.endswith('.xlsb'):
-        file_path = convert_xlsb_to_xlsx(file_path)
+        print(f"Converting .xlsb file: {file_path}")
+        try:
+            file_path = convert_xlsb_to_xlsx(file_path)
+        except Exception as e:
+            print(f"Failed to convert .xlsb file: {file_path}. Error: {e}")
+            return
 
-    # Open the source Excel file with data_only=True to get evaluated formulas
-    content_wb = openpyxl.load_workbook(file_path, data_only=True)
-    
-    # Get Sheet 1 (index 0) and Sheet 2 (index 1)
-    sheet_1 = content_wb.worksheets[0]
-    sheet_2 = content_wb.worksheets[1]
+    if not file_path.endswith('.xlsx'):
+        print(f"Skipping unsupported file: {file_path}")
+        return
 
-    # Get the value from B2 in Sheet 1 (for Column D in destination file)
+    try:
+        content_wb = openpyxl.load_workbook(file_path, data_only=True)
+    except openpyxl.utils.exceptions.InvalidFileException as e:
+        print(f"Invalid Excel file: {file_path}. Skipping. Error: {e}")
+        return
+    except Exception as e:
+        print(f"Unexpected error loading workbook {file_path}: {e}")
+        return
+
+    sheet_1, sheet_2 = content_wb.worksheets[:2]
     value_from_b2 = sheet_1['B2'].value
-
-    # Get the number of rows in Sheet 1 and Sheet 2 (we'll use this for filling Column D, E, F, etc.)
-    rows_count_sheet_1 = sheet_1.max_row
-    rows_count_sheet_2 = sheet_2.max_row
-
-    # Calculate the previous day's date
+    rows_count_sheet_1, rows_count_sheet_2 = sheet_1.max_row, sheet_2.max_row
     previous_date = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")
 
-    # Iterate through the rows of the source file and append data to the destination file
     for i in range(2, max(rows_count_sheet_1, rows_count_sheet_2) + 1):
-        # Column A: Sequential numbers are removed now
-        row_data = []
+        row_data = [os.path.splitext(os.path.basename(file_path))[0], file_path, value_from_b2]
+        row_data.append(sheet_2[f"C{i}"].value if i <= rows_count_sheet_2 else None)
 
-        # Column B: Extract the file name (excluding the extension)
-        file_name = os.path.splitext(os.path.basename(file_path))[0]
-        row_data.append(file_name)
+        source_content = sheet_2[f"C{i}"].value if i <= rows_count_sheet_2 else None
+        if source_content and "-" in source_content:
+            string_part = source_content.split("-")[0].strip()
+            row_data.append(
+                f'=CONCATENATE("{string_part}", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))'
+            )
+        else:
+            row_data.append(
+                '=CONCATENATE("Invalid Content in C", " at ", "-", TEXT(K2, "dd-mmm-yyyy"))'
+            )
 
-        # Column C: Extract the file path
-        row_data.append(file_path)
-
-        # Column D: Fill with the value from B2 of Sheet 1 (same value for every row in Column D)
-        row_data.append(value_from_b2)
-
-        # Columns G to J: Extract data from Columns D to H of Sheet 2
-        for col_letter in ['C', 'D', 'E', 'F', 'G', 'H']:
-            if i <= rows_count_sheet_2:
-                row_data.append(sheet_2[f"{col_letter}{i}"].value)
-            else:
-                row_data.append(None)
-
-        # Append the row data to the destination file
+        for col in ['D', 'E', 'F', 'G', 'H']:
+            row_data.append(sheet_2[f"{col}{i}"].value if i <= rows_count_sheet_2 else None)
         destination_ws.append(row_data)
 
-    # Add the previous day's date to cell K2
     destination_ws['K2'] = previous_date
 
 # Close any open Excel files before starting the process
 close_open_excel_files()
 
 # Read file paths from the text file
-with open(txt_file_path, "r") as file:
+with open(txt_file_path, "r", encoding="utf-8") as file:
     file_paths = file.readlines()
 
 # Process the files (both individual files and files inside folders)
